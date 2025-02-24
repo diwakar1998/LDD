@@ -1,0 +1,1 @@
+cmd_/home/diwakar/Desktop/ldd/custom_drivers/00_hello_world/main.ko := arm-linux-gnueabihf-ld -r -EL -z noexecstack --no-warn-rwx-segments --build-id=sha1  -T scripts/module.lds -o /home/diwakar/Desktop/ldd/custom_drivers/00_hello_world/main.ko /home/diwakar/Desktop/ldd/custom_drivers/00_hello_world/main.o /home/diwakar/Desktop/ldd/custom_drivers/00_hello_world/main.mod.o;  true

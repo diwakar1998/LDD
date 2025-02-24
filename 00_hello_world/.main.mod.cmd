@@ -1,0 +1,1 @@
+cmd_/home/diwakar/Desktop/ldd/custom_drivers/00_hello_world/main.mod := { echo  /home/diwakar/Desktop/ldd/custom_drivers/00_hello_world/main.o;  echo; } > /home/diwakar/Desktop/ldd/custom_drivers/00_hello_world/main.mod
