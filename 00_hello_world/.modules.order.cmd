@@ -1,1 +1,0 @@
-cmd_/home/diwakar/Desktop/ldd/custom_drivers/00_hello_world/modules.order := {   echo /home/diwakar/Desktop/ldd/custom_drivers/00_hello_world/main.ko; :; } | awk '!x[$$0]++' - > /home/diwakar/Desktop/ldd/custom_drivers/00_hello_world/modules.order
