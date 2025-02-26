@@ -4,27 +4,6 @@
 
 #undef pr_fmt
 #define pr_fmt(fmt) "%s :" fmt,__func__
-
-ssize_t psuedo_read (struct file *file_p, char __user *buff, size_t count, loff_t *f_pos){     
-    pr_info("Read was Requested for %d bytes\n",count);
-    return 0; 
-}
-ssize_t psuedo_write (struct file *file_p, const char __user *buff, size_t count, loff_t *f_pos){     
-    pr_info("Write was Requested for %d bytes\n",count);
-    return 0; 
-}
-int psuedo_open (struct inode *inode, struct file *file_p){     
-    pr_info("Open was succesful\n");
-    return 0; 
-}
-loff_t psuedo_lseek (struct file *file_p, loff_t off, int whence){     
-    pr_info("Seek was Requested\n");
-    return 0; 
-}
-int psuedo_release (struct inode *inode, struct file *file_p){     
-    pr_info("CLose was succesful\n");
-    return 0; 
-}
     
 //Macros of sizes of different devices
 #define MEM_SIZE_DEV1 1024
@@ -38,18 +17,6 @@ char buffer_dev1[MEM_SIZE_DEV1];
 char buffer_dev2[MEM_SIZE_DEV2];
 char buffer_dev3[MEM_SIZE_DEV3];
 char buffer_dev4[MEM_SIZE_DEV4];
-
-//2 file operations structure holding info on which method is linked to which user call
-struct file_operations psuedo_fops = {
-    .open = psuedo_open,
-    .read = psuedo_read,
-    .write = psuedo_write,
-    .release = psuedo_release,
-    .llseek = psuedo_lseek,
-    .owner = THIS_MODULE
-};
-
-
 struct psuedo_dev_data{
     char *buffer;
     unsigned size;
@@ -100,6 +67,59 @@ struct psuedo_driver_data driver_data =
             .perm = 0x11 //RDWR
         },
     }
+};
+
+ssize_t psuedo_read (struct file *file_p, char __user *buff, size_t count, loff_t *f_pos){     
+    pr_info("Read was Requested for %d bytes\n",count);
+    
+    return 0; 
+}
+ssize_t psuedo_write (struct file *file_p, const char __user *buff, size_t count, loff_t *f_pos){     
+    pr_info("Write was Requested for %d bytes\n",count);
+    return 0; 
+}
+
+int check_permission(void);
+
+int check_permission(){
+    return 0;//Access for both read and write
+}
+
+int psuedo_open (struct inode *inode, struct file *file_p){    
+    int ret;
+    int minor_n;
+    struct psuedo_dev_data *dev_data;
+
+    //figuring out which device is calling open
+    minor_n = MINOR(inode->i_rdev);
+    //gets device's private data structure
+    dev_data = container_of(inode->i_cdev,struct psuedo_dev_data,cdev);
+
+    //saving the pointer in private field of file struct
+    file_p->private_data = dev_data;
+
+    //checkpermisson
+    ret = check_permission();
+    (!ret) ? pr_info("Open was succesful\n") : pr_info("File Open Failed\n") ;
+    return 0; 
+}
+loff_t psuedo_lseek (struct file *file_p, loff_t off, int whence){     
+    pr_info("Seek was Requested\n");
+    return 0; 
+}
+int psuedo_release (struct inode *inode, struct file *file_p){     
+    pr_info("CLose was succesful\n");
+    return 0; 
+}
+
+//2 file operations structure holding info on which method is linked to which user call
+struct file_operations psuedo_fops = {
+    .open = psuedo_open,
+    .read = psuedo_read,
+    .write = psuedo_write,
+    .release = psuedo_release,
+    .llseek = psuedo_lseek,
+    .owner = THIS_MODULE
 };
 
 static int i=0;
