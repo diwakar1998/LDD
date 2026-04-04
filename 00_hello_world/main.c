@@ -1,7 +1,7 @@
 #include<linux/module.h>
 
 static int __init helloworld_init(void){
-    pr_info("Hello world\n");
+    pr_info("Hello world...\n");
     return 0;
 }
 
