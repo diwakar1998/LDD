@@ -124,15 +124,22 @@ struct device *device_psuedo;
 static int __init psuedo_init(void)
 {
     //1.Dynamically allocate a device number
-    alloc_chrdev_region(&device_number,3,6,"psuedo_device_number");
-
+    int ret = alloc_chrdev_region(&device_number,3,6,"psuedo_device_number");
+    if(ret < 0){
+        pr_err("Failed to allocate device number\n");
+        goto alloc_error;
+    } 
     pr_info("Device Numbers Maj: %d : Min: %d \n",MAJOR(device_number),MINOR(device_number));
 
     //2.Cdev Initialization with file operations
     cdev_init(&psuedo_cdev,&psuedo_fops);
 
     //3.Registration with Kernel Virtual File System
-    cdev_add(&psuedo_cdev,device_number,1);
+    ret = cdev_add(&psuedo_cdev,device_number,1);
+    if(ret < 0){
+        pr_err("Failed to add cdev to kernel\n");
+        goto unregister_alloc;
+    }
     psuedo_cdev.owner = THIS_MODULE;  
 
     //4.Creation of device files
@@ -146,14 +153,34 @@ static int __init psuedo_init(void)
     // class_psuedo = class_create(THIS_MODULE, "Psuedo_class");
     class_psuedo = class_create("Psuedo_class");    // Api is changed for WSL2 Kernel
     
+    if(IS_ERR(class_psuedo)) {
+        pr_err("Failed to create class\n");
+        ret = PTR_ERR(class_psuedo);
+        goto cdev_delete;
+    }
     //Populate sysfs with device information                
     device_psuedo = device_create(class_psuedo,NULL,device_number,NULL,"psuedo");
                                                     //    |                         
                                                     //    V    
                                         //this name appears in /dev directory
+    if(IS_ERR(device_psuedo)) {
+        pr_err("Failed to create device\n");
+        ret = PTR_ERR(device_psuedo);
+        goto class_delete;
+    }
 
     pr_info("Module Init successful\n");
+
     return 0;
+
+class_delete:
+    class_destroy(class_psuedo);
+cdev_delete:
+    cdev_del(&psuedo_cdev);
+unregister_alloc:
+    unregister_chrdev_region(device_number,6);
+alloc_error:    
+    return ret;
 }
 
 static void __exit psuedo_cleanup(void){
