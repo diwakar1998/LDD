@@ -1,6 +1,7 @@
 #include<linux/module.h>
 #include<linux/fs.h>
 #include<linux/cdev.h>
+#include<linux/uaccess.h>
 
 #undef pr_fmt
 #define pr_fmt(fmt) "%s :" fmt,__func__
@@ -12,11 +13,16 @@
 #define MEM_SIZE_DEV4 512
 #define NUM_OF_DEVICES 4
 
+#define RDONLY 0x01
+#define WRONLY 0x10
+#define RDWR 0x11
+
 //Memory buffers in stack
-char buffer_dev1[MEM_SIZE_DEV1];
-char buffer_dev2[MEM_SIZE_DEV2];
-char buffer_dev3[MEM_SIZE_DEV3];
-char buffer_dev4[MEM_SIZE_DEV4];
+char buffer_dev1[MEM_SIZE_DEV1] = "This is PCDEV1";
+char buffer_dev2[MEM_SIZE_DEV2] = "This is PCDEV2";
+char buffer_dev3[MEM_SIZE_DEV3] = "This is PCDEV3";
+char buffer_dev4[MEM_SIZE_DEV4] = "This is PCDEV4";
+
 struct psuedo_dev_data{
     char *buffer;
     unsigned size;
@@ -46,43 +52,93 @@ struct psuedo_driver_data driver_data =
             .buffer = buffer_dev1,
             .size = MEM_SIZE_DEV1,
             .serial_number = "PCDEV1",
-            .perm = 0x01 //RDONLY
+            .perm = RDONLY //RDONLY
         },
         [1] = {
             .buffer = buffer_dev2,
             .size = MEM_SIZE_DEV2,
             .serial_number = "PCDEV2",
-            .perm = 0x10 //WRONLY
+            .perm = WRONLY //WRONLY
         },
         [2] = {
             .buffer = buffer_dev3,
             .size = MEM_SIZE_DEV3,
             .serial_number = "PCDEV3",
-            .perm = 0x11 //RDWR
+            .perm = RDWR //RDWR
         },
         [3] = {
             .buffer = buffer_dev4,
             .size = MEM_SIZE_DEV4,
             .serial_number = "PCDEV4",
-            .perm = 0x11 //RDWR
+            .perm = RDWR //RDWR
         },
     }
 };
 
-ssize_t psuedo_read (struct file *file_p, char __user *buff, size_t count, loff_t *f_pos){     
-    pr_info("Read was Requested for %d bytes\n",count);
+/* Forward declarations */
+ssize_t psuedo_read (struct file *file_p, char __user *buff, size_t count, loff_t *f_pos);
+ssize_t psuedo_write (struct file *file_p, const char __user *buff, size_t count, loff_t *f_pos);
+int psuedo_open (struct inode *inode, struct file *file_p);
+loff_t psuedo_lseek (struct file *file_p, loff_t off, int whence);
+int psuedo_release (struct inode *inode, struct file *file_p);
+
+int check_permission(int dev_perm, int acc_mode);
+
+int check_permission(int dev_perm, int acc_mode){
+    if(dev_perm == RDWR) return 0; //Access for both read and write
+    if(dev_perm == RDONLY && (acc_mode & FMODE_READ) && !(acc_mode & FMODE_WRITE)) return 0; //Access for read only
+    if(dev_perm == WRONLY && (acc_mode & FMODE_WRITE) && !(acc_mode & FMODE_READ)) return 0; //Access for write only
+    return -EPERM;
+}
+
+ssize_t psuedo_read (struct file *file_p, char __user *buff, size_t count, loff_t *f_pos){ 
+    struct psuedo_dev_data *dev_data = (struct psuedo_dev_data *)(file_p->private_data);
+    pr_info("Read Requested for device with serial number %s\n",dev_data->serial_number);
+
+    pr_info("Read was Requested for %zu bytes\n",count);
+    pr_info("Current file position is %lld\n",*f_pos);
     
-    return 0; 
+    // Adjust count size
+    if(*f_pos + count > dev_data->size){
+        count = dev_data->size - *f_pos;
+    }
+    // copy to user
+    if(copy_to_user(buff,&dev_data->buffer[*f_pos],count)){
+        pr_err("Failed to copy data to user\n");
+        return -EFAULT;
+    }
+    // Update file position
+    *f_pos += count;
+    pr_info("Number of bytes read: %zu\n", count);
+    pr_info("Updated file position is %lld\n",*f_pos);
+    return count; 
 }
 ssize_t psuedo_write (struct file *file_p, const char __user *buff, size_t count, loff_t *f_pos){     
-    pr_info("Write was Requested for %d bytes\n",count);
-    return 0; 
-}
+    struct psuedo_dev_data *dev_data = (struct psuedo_dev_data *)(file_p->private_data);
+    pr_info("Write Requested for device with serial number %s\n",dev_data->serial_number);
 
-int check_permission(void);
+    pr_info("Write was Requested for %zu bytes\n",count);
+    pr_info("Current file position is %lld\n",*f_pos);
+    // Adjust count size
+    if(*f_pos + count > dev_data->size){
+        count = dev_data->size - *f_pos;
+    }
 
-int check_permission(){
-    return 0;//Access for both read and write
+    if(!count ){
+        pr_err("No space left in buffer to write data\n");
+        return -ENOMEM;
+    }
+    // copy from user
+    if(copy_from_user(&dev_data->buffer[*f_pos],buff,count)){
+        pr_err("Failed to copy data from user\n");
+        return -EFAULT;
+    }
+    // Update file position
+    *f_pos += count;
+
+    pr_info("Number of bytes written: %zu\n", count);
+    pr_info("Updated file position is %lld\n",*f_pos);
+    return count; 
 }
 
 int psuedo_open (struct inode *inode, struct file *file_p){    
@@ -99,13 +155,44 @@ int psuedo_open (struct inode *inode, struct file *file_p){
     file_p->private_data = dev_data;
 
     //checkpermisson
-    ret = check_permission();
+    ret = check_permission(dev_data->perm,file_p->f_mode);
     (!ret) ? pr_info("Open was succesful\n") : pr_info("File Open Failed\n") ;
-    return 0; 
+    return ret;
 }
+
 loff_t psuedo_lseek (struct file *file_p, loff_t off, int whence){     
-    pr_info("Seek was Requested\n");
-    return 0; 
+    struct psuedo_dev_data *dev_data = (struct psuedo_dev_data *)(file_p->private_data);
+    pr_info("Lseek Requested for device with serial number %s\n",dev_data->serial_number);
+
+    pr_info("Current file position is %lld\n",file_p->f_pos);
+    switch(whence){
+        case SEEK_SET:
+            if(off < 0 || off > dev_data->size){
+                pr_err("Invalid offset\n");
+                return -EINVAL;
+            }
+            file_p->f_pos = off;
+            break;
+        case SEEK_CUR:
+            if(file_p->f_pos + off < 0 || file_p->f_pos + off > dev_data->size){
+                pr_err("Invalid offset\n");
+                return -EINVAL;
+            }
+            file_p->f_pos += off;
+            break;
+        case SEEK_END:
+            if(dev_data->size + off < 0 || dev_data->size + off > dev_data->size){
+                pr_err("Invalid offset\n");
+                return -EINVAL;
+            }
+            file_p->f_pos = dev_data->size + off;
+            break;
+        default:
+            pr_err("Invalid whence\n");
+            return -EINVAL;
+    }
+    pr_info("Updated file position is %lld\n",file_p->f_pos);
+    return file_p->f_pos; 
 }
 int psuedo_release (struct inode *inode, struct file *file_p){     
     pr_info("CLose was succesful\n");
@@ -131,7 +218,7 @@ static int __init psuedo_init(void)
     
     if(ret < 0) {   
         pr_err("Alloc chrdev failed\n");  
-        goto failed;
+        goto alloc_error;
     }
 
     for(i=0;i<NUM_OF_DEVICES;i++){
@@ -150,7 +237,7 @@ static int __init psuedo_init(void)
     */
 
     //Class is created in /sys/class 
-    driver_data.class_psuedo = class_create(THIS_MODULE, "Psuedo_class");
+    driver_data.class_psuedo = class_create("Psuedo_class");
     //Error handling
     if(IS_ERR(driver_data.class_psuedo)){
         pr_err("Error occured at class creation\n");
@@ -179,9 +266,9 @@ static int __init psuedo_init(void)
         */
         //Populate sysfs with device information                
         driver_data.device_psuedo = device_create(driver_data.class_psuedo,NULL,driver_data.device_number+i,NULL,"psuedo %d",i);
-                                                                        //    |                         
-                                                                        //    V    
-                                                                    //this name appears in /dev directory
+                                                                                                            //    |                         
+                                                                                                            //    V    
+                                                                                                        //this name appears in /dev directory
 
         if(IS_ERR(driver_data.device_psuedo)){
             pr_err("Error at device create %d\n",i);
@@ -195,7 +282,7 @@ static int __init psuedo_init(void)
 class_destroy:
 device_destroy:
     //2.cdev removal
-    for(i =0;i<NUM_OF_DEVICES;i++){
+    for(;i>=0;i--){
         //4. Destroy device
         device_destroy(driver_data.class_psuedo,driver_data.device_number+i);
         cdev_del(&driver_data.psuedo_devices[i].cdev);
@@ -209,9 +296,9 @@ device_destroy:
 unreg_chrdev:
     unregister_chrdev_region(driver_data.device_number,NUM_OF_DEVICES);
 
-failed:
+alloc_error:
     //1.Unallocate the allocated major and minor numbers
-    pr_info("Module Insertion Failed\n");
+    pr_info("Failed to allocate device numbers\n");
 
     return ret; 
 }
