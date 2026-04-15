@@ -1,6 +1,9 @@
 #include<linux/module.h>
 #include<linux/fs.h>
 #include<linux/cdev.h>
+#include<linux/device/class.h>
+#include<linux/uaccess.h>
+
 
 #define MEM_SIZE 512
 
@@ -9,13 +12,54 @@
 
 char buffer[MEM_SIZE];
 
+/* Forward declarations */
+ssize_t psuedo_read (struct file *file_p, char __user *buff, size_t count, loff_t *f_pos);
+ssize_t psuedo_write (struct file *file_p, const char __user *buff, size_t count, loff_t *f_pos);
+int psuedo_open (struct inode *inode, struct file *file_p);
+loff_t psuedo_lseek (struct file *file_p, loff_t off, int whence);
+int psuedo_release (struct inode *inode, struct file *file_p);
+
 ssize_t psuedo_read (struct file *file_p, char __user *buff, size_t count, loff_t *f_pos){     
-    pr_info("Read was Requested for %d bytes\n",count);
-    return 0; 
+    pr_info("Read was Requested for %zu bytes\n",count);
+    pr_info("Current file position is %lld\n",*f_pos);
+    // Adjust count size
+    if(*f_pos + count > MEM_SIZE){
+        count = MEM_SIZE - *f_pos;
+    }
+    // copy to user
+    if(copy_to_user(buff,&buffer[*f_pos],count)){
+        pr_err("Failed to copy data to user\n");
+        return -EFAULT;
+    }
+    // Update file position
+    *f_pos += count;
+    pr_info("Number of bytes read: %zu\n", count);
+    pr_info("Updated file position is %lld\n",*f_pos);
+    return count; 
 }
 ssize_t psuedo_write (struct file *file_p, const char __user *buff, size_t count, loff_t *f_pos){     
-    pr_info("Write was Requested for %d bytes\n",count);
-    return 0; 
+    pr_info("Write was Requested for %zu bytes\n",count);
+    pr_info("Current file position is %lld\n",*f_pos);
+    // Adjust count size
+    if(*f_pos + count > MEM_SIZE){
+        count = MEM_SIZE - *f_pos;
+    }
+
+    if(!count ){
+        pr_err("No space left in buffer to write data\n");
+        return -ENOMEM;
+    }
+    // copy from user
+    if(copy_from_user(&buffer[*f_pos],buff,count)){
+        pr_err("Failed to copy data from user\n");
+        return -EFAULT;
+    }
+    // Update file position
+    *f_pos += count;
+
+    pr_info("Number of bytes written: %zu\n", count);
+    pr_info("Updated file position is %lld\n",*f_pos);
+    return count; 
 }
 int psuedo_open (struct inode *inode, struct file *file_p){     
     pr_info("Open was succesful\n");
@@ -23,7 +67,35 @@ int psuedo_open (struct inode *inode, struct file *file_p){
 }
 loff_t psuedo_lseek (struct file *file_p, loff_t off, int whence){     
     pr_info("Seek was Requested\n");
-    return 0; 
+    pr_info("Current file position is %lld\n",file_p->f_pos);
+    switch(whence){
+        case SEEK_SET:
+            if(off < 0 || off > MEM_SIZE){
+                pr_err("Invalid offset\n");
+                return -EINVAL;
+            }
+            file_p->f_pos = off;
+            break;
+        case SEEK_CUR:
+            if(file_p->f_pos + off < 0 || file_p->f_pos + off > MEM_SIZE){
+                pr_err("Invalid offset\n");
+                return -EINVAL;
+            }
+            file_p->f_pos += off;
+            break;
+        case SEEK_END:
+            if(MEM_SIZE + off < 0 || MEM_SIZE + off > MEM_SIZE){
+                pr_err("Invalid offset\n");
+                return -EINVAL;
+            }
+            file_p->f_pos = MEM_SIZE + off;
+            break;
+        default:
+            pr_err("Invalid whence\n");
+            return -EINVAL;
+    }
+    pr_info("Updated file position is %lld\n",file_p->f_pos);
+    return file_p->f_pos; 
 }
 int psuedo_release (struct inode *inode, struct file *file_p){     
     pr_info("CLose was succesful\n");
@@ -71,7 +143,8 @@ static int __init psuedo_init(void)
     this can be used in user space to communicate with driver
     */
     //Class is created in /sys/class 
-    class_psuedo = class_create(THIS_MODULE, "Psuedo_class");
+    // class_psuedo = class_create(THIS_MODULE, "Psuedo_class");
+    class_psuedo = class_create("Psuedo_class");    // Api is changed for WSL2 Kernel
     
     //Populate sysfs with device information                
     device_psuedo = device_create(class_psuedo,NULL,device_number,NULL,"psuedo");
@@ -95,6 +168,7 @@ static void __exit psuedo_cleanup(void){
 
     //1.Unallocate the allocated major and minor numbers
     unregister_chrdev_region(device_number,6);
+    pr_info("Module Exit successful\n");
 }
 
 

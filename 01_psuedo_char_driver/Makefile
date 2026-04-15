@@ -13,7 +13,9 @@ clean:
 	make ARCH=$(ARCH) CROSS_COMPILE=$(CROSS) -C $(KERN_DIR) M=$(PWD) clean
 help:
 	make ARCH=$(ARCH) CROSS_COMPILE=$(CROSS) -C $(KERN_DIR) M=$(PWD) help
-host:
+host:host_clean
 	make -C $(HOST_DIR) M=$(PWD) modules
+host_clean:
+	make -C $(HOST_DIR) M=$(PWD) clean
 send:
 	sshpass -p "temppwd" scp psuedo.ko debian@192.168.7.2:/home/debian/drivers/
