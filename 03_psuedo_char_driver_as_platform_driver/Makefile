@@ -1,4 +1,4 @@
-obj-m := psuedo_platform_init.o
+obj-m := platform_driver.o platform_init.o
 
 ARCH=arm
 CROSS=arm-linux-gnueabihf-

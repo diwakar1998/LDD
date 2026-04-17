@@ -50,14 +50,14 @@ static int __init psuedoDevice_platform_init(void) {
     platform_device_register(&psuedoDevice1);
     platform_device_register(&psuedoDevice2);
 
-    pr_info("2 platform devices registered\n");
+    pr_info("Device init module loaded\n");
     return 0;
 }
 
 static void __exit psuedoDevice_platform_exit(void) {
     platform_device_unregister(&psuedoDevice1);
     platform_device_unregister(&psuedoDevice2);
-    pr_info("2 platform devices unregistered\n");
+    pr_info("Device init module unloaded\n");
 }
 
 
