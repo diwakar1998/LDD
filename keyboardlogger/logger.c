@@ -111,7 +111,14 @@ int logger_release (struct inode *inode, struct file *file_p){
     pr_info("CLose was succesful\n");
     return 0; 
 }
-    
+ 
+void logger_tasklet(long unsigned int);
+
+struct tasklet_struct *logger_tasklet_struct;
+
+void logger_tasklet(long unsigned int data){
+    pr_info("Tasklet called after top half\n");
+}
 //Interrupt Service Routine for handling interrupts from keyboard
 // This will be called when an interrupt is generated from the keyboard
 // We will read the scancode from the keyboard and store it in a buffer
@@ -134,6 +141,7 @@ static irqreturn_t keyboard_isr(int irq, void *dev_id){
     pr_info("Keyboard Interrupt Occurred. Count: %d\n",keyboard_interrupt_count);
 
     // Bottom half to be implemented
+    tasklet_schedule(logger_tasklet_struct);
     return IRQ_HANDLED;
 }
 
@@ -212,6 +220,17 @@ static int __init logger_init(void)
         pr_info("Failed to request IRQ for keyboard logger\n");
         goto irq_error;
     }
+
+    // Allocating memory to tasklet structure
+    logger_tasklet_struct = kmalloc(sizeof(struct tasklet_struct),GFP_KERNEL);
+    if(!logger_tasklet_struct){
+        pr_info("Cannot allocate memory to tasklet\n");
+        goto irq_error;
+    }
+
+    // Initialize the tasklet
+    tasklet_init(logger_tasklet_struct,logger_tasklet,0);
+ 
     pr_info("Module Init successful\n");
 
     return 0;
