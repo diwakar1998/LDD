@@ -7,3 +7,4 @@ struct psuedo_char_dev_platform_data {
     int perm;
     const char *serial_number;
 };
+

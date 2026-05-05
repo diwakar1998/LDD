@@ -25,7 +25,7 @@ struct psuedo_char_dev_platform_data psuedoDeviceData[2] =  {
 };
 
 
-//1. Create 2 platform devices
+//2. Create 2 platform devices
 
 struct platform_device psuedoDevice1 = {
     .name = "psuedo_char_device",
@@ -47,6 +47,7 @@ struct platform_device psuedoDevice2 = {
 
 
 static int __init psuedoDevice_platform_init(void) {
+    // Register a platform device on the platform bus
     platform_device_register(&psuedoDevice1);
     platform_device_register(&psuedoDevice2);
 
@@ -55,6 +56,7 @@ static int __init psuedoDevice_platform_init(void) {
 }
 
 static void __exit psuedoDevice_platform_exit(void) {
+    // Unregister the platform device from the platform bus
     platform_device_unregister(&psuedoDevice1);
     platform_device_unregister(&psuedoDevice2);
     pr_info("Device init module unloaded\n");

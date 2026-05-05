@@ -11,6 +11,24 @@
 #undef pr_fmt
 #define pr_fmt(fmt) "%s :" fmt,__func__
 
+// Holds device private data
+struct psuedo_char_dev_data{
+    struct psuedo_char_dev_platform_data *pdata;
+    char * buffer;
+    dev_t dev_num;
+    struct cdev psuedo_cdev;
+};
+
+// Holds driver private data
+struct psuedo_char_drv_data{
+    int total_devices;
+    dev_t device_num_base; // Base device number for the driver
+    struct class *class;
+    struct device *device;
+};
+
+struct psuedo_char_drv_data drv_data;
+
 char buffer[MEM_SIZE];
 
 /* Forward declarations */
@@ -22,45 +40,11 @@ int psuedo_release (struct inode *inode, struct file *file_p);
 
 ssize_t psuedo_read (struct file *file_p, char __user *buff, size_t count, loff_t *f_pos){     
     pr_info("Read was Requested for %zu bytes\n",count);
-    pr_info("Current file position is %lld\n",*f_pos);
-    // Adjust count size
-    if(*f_pos + count > MEM_SIZE){
-        count = MEM_SIZE - *f_pos;
-    }
-    // copy to user
-    if(copy_to_user(buff,&buffer[*f_pos],count)){
-        pr_err("Failed to copy data to user\n");
-        return -EFAULT;
-    }
-    // Update file position
-    *f_pos += count;
-    pr_info("Number of bytes read: %zu\n", count);
-    pr_info("Updated file position is %lld\n",*f_pos);
-    return count; 
+    return 0;
 }
 ssize_t psuedo_write (struct file *file_p, const char __user *buff, size_t count, loff_t *f_pos){     
     pr_info("Write was Requested for %zu bytes\n",count);
-    pr_info("Current file position is %lld\n",*f_pos);
-    // Adjust count size
-    if(*f_pos + count > MEM_SIZE){
-        count = MEM_SIZE - *f_pos;
-    }
-
-    if(!count ){
-        pr_err("No space left in buffer to write data\n");
-        return -ENOMEM;
-    }
-    // copy from user
-    if(copy_from_user(&buffer[*f_pos],buff,count)){
-        pr_err("Failed to copy data from user\n");
-        return -EFAULT;
-    }
-    // Update file position
-    *f_pos += count;
-
-    pr_info("Number of bytes written: %zu\n", count);
-    pr_info("Updated file position is %lld\n",*f_pos);
-    return count; 
+    return 0;
 }
 int psuedo_open (struct inode *inode, struct file *file_p){     
     pr_info("Open was succesful\n");
@@ -68,35 +52,7 @@ int psuedo_open (struct inode *inode, struct file *file_p){
 }
 loff_t psuedo_lseek (struct file *file_p, loff_t off, int whence){     
     pr_info("Seek was Requested\n");
-    pr_info("Current file position is %lld\n",file_p->f_pos);
-    switch(whence){
-        case SEEK_SET:
-            if(off < 0 || off > MEM_SIZE){
-                pr_err("Invalid offset\n");
-                return -EINVAL;
-            }
-            file_p->f_pos = off;
-            break;
-        case SEEK_CUR:
-            if(file_p->f_pos + off < 0 || file_p->f_pos + off > MEM_SIZE){
-                pr_err("Invalid offset\n");
-                return -EINVAL;
-            }
-            file_p->f_pos += off;
-            break;
-        case SEEK_END:
-            if(MEM_SIZE + off < 0 || MEM_SIZE + off > MEM_SIZE){
-                pr_err("Invalid offset\n");
-                return -EINVAL;
-            }
-            file_p->f_pos = MEM_SIZE + off;
-            break;
-        default:
-            pr_err("Invalid whence\n");
-            return -EINVAL;
-    }
-    pr_info("Updated file position is %lld\n",file_p->f_pos);
-    return file_p->f_pos; 
+    return 0;
 }
 int psuedo_release (struct inode *inode, struct file *file_p){     
     pr_info("CLose was succesful\n");
@@ -125,113 +81,151 @@ int psuedo_platform_driver_probe(struct platform_device *pdev);
 void psuedo_platform_driver_remove(struct platform_device *pdev);
 
 int psuedo_platform_driver_probe(struct platform_device *pdev){
-    pr_info("Device Probed\n");
+    
+    int ret = 0;
+    struct psuedo_char_dev_data *devdata;
+    struct psuedo_char_dev_platform_data *pdata;
+    pr_info("Probing for device\n");
+    // 1 Get the platform data from the device
+    pdata = (struct psuedo_char_dev_platform_data *)dev_get_platdata(&pdev->dev);
+    if(!pdata){
+        pr_err("No platform data found\n");
+        ret = -EINVAL;
+        goto exit;
+    }
+    // 2 Dynamically allocate memory for device private data
+    devdata = kzalloc(sizeof(struct psuedo_char_dev_data),GFP_KERNEL);
+    if(!devdata){
+        pr_err("Failed to allocate memory for device data\n");
+        ret = -ENOMEM;
+        goto exit;
+    }
+
+    devdata->pdata = pdata;
+    
+    dev_set_drvdata(&pdev->dev,devdata); // Link the device data with the platform device structure so that it can be accessed in other file operations methods using dev_get_drvdata()
+    // 3 Allocate memory for the device buffer using size info from platform data
+    devdata->buffer = kzalloc(devdata->pdata->size,GFP_KERNEL);
+    if(!devdata->buffer){
+        pr_err("Failed to allocate memory for device buffer\n");
+        ret = -ENOMEM;
+        goto free_devdata;
+    }
+    // 4 Get Device Number
+    devdata->dev_num = drv_data.device_num_base + drv_data.total_devices;
+
+    // 5 Do cdev init and add
+    cdev_init(&devdata->psuedo_cdev,&psuedo_fops);
+    devdata->psuedo_cdev.owner = THIS_MODULE;
+    ret = cdev_add(&devdata->psuedo_cdev,devdata->dev_num,1);
+    if(ret < 0){
+        pr_err("Failed to add cdev\n");
+        goto free_buffer;
+    }
+    // 6 Create device file for detected platform device    
+    drv_data.device = device_create(drv_data.class,NULL,devdata->dev_num,NULL,"psuedo_char_dev_%d",drv_data.total_devices);
+    if(IS_ERR(drv_data.device)){
+        pr_err("Failed to create device file\n");
+        ret = PTR_ERR(drv_data.device);
+        goto del_cdev;
+    }
+    pr_info("Device loaded and Probed\n");
+    drv_data.total_devices++;
     return 0;
+    // 7 Error handling
+del_cdev:
+    cdev_del(&devdata->psuedo_cdev);
+free_buffer:
+    kfree(devdata->buffer);
+free_devdata:
+    kfree(devdata);
+exit:
+    pr_info("Device probed failed\n");
+    return ret;
 }
 
 void psuedo_platform_driver_remove(struct platform_device *pdev){
-    pr_info("Device Removed\n");
+    struct psuedo_char_dev_data *devdata = dev_get_drvdata(&pdev->dev);
+    // 1 Remove device file
+    device_destroy(drv_data.class,devdata->dev_num);
+    // 2 Delete cdev
+    cdev_del(&devdata->psuedo_cdev);
+    // 3 Free device buffer memory
+    kfree(devdata->buffer);
+    // 4 Free device data memory
+    kfree(devdata);
+    pr_info("Device unloaded and Removed \n");
 }
 
 struct platform_driver psuedo_platform_driver = {
     .probe = psuedo_platform_driver_probe,
     .remove = psuedo_platform_driver_remove,
     .driver = {
-        .name = "psuedo_char_device",
+        .name = "psuedo_char_device", // Uses this name to match with platform device name and binds driver to it
     },
 }; 
 
-static int __init psuedo_platform_init(void)
-{
+#define MAX_DEVICES 10
 
+static int __init psuedo_platform_driver_init(void)
+{
     //1.Dynamically allocate a device number
-    int ret = alloc_chrdev_region(&psuedo_cdev,3,6,"psuedo_device_number");
+    int ret = alloc_chrdev_region(&drv_data.device_num_base,0,MAX_DEVICES,"Platform_Psuedo_Char_Driver");
     if(ret < 0){
         pr_err("Failed to allocate device number\n");
         goto alloc_error;
     } 
-    pr_info("Device Numbers Maj: %d : Min: %d \n",MAJOR(device_number),MINOR(device_number));
+    drv_data.total_devices = 0;
+    pr_info("Device Numbers Maj: %d : Min: %d \n",MAJOR(drv_data.device_num_base),MINOR(drv_data.device_num_base));
 
-    //2.Cdev Initialization with file operations
-    cdev_init(&psuedo_cdev,&psuedo_fops);
-
-    //3.Registration with Kernel Virtual File System
-    ret = cdev_add(&psuedo_cdev,device_number,1);
-    if(ret < 0){
-        pr_err("Failed to add cdev to kernel\n");
-        goto unregister_alloc;
-    }
-    psuedo_cdev.owner = THIS_MODULE;  
-
-    //4.Creation of device files
-    /*First create class of our device
-    Create device that will create a dev file in the sysfs class folder
-    Udev listens to uevents then will look for this sysfs folder and then 
-    creates /dev/"devicename"--> this file in /dev directory
-    this can be used in user space to communicate with driver
-    */
+    //2.Creation of Classs
     //Class is created in /sys/class 
     // class_psuedo = class_create(THIS_MODULE, "Psuedo_class");
-    class_psuedo = class_create("Psuedo_class");    // Api is changed for WSL2 Kernel
+    drv_data.class = class_create("Psuedo_class");    // Api is changed for WSL2 Kernel
     
-    if(IS_ERR(class_psuedo)) {
+    if(IS_ERR(drv_data.class)) {
         pr_err("Failed to create class\n");
-        ret = PTR_ERR(class_psuedo);
-        goto cdev_delete;
+        ret = PTR_ERR(drv_data.class);
+        goto unregister_alloc;
     }
-    //Populate sysfs with device information                
-    device_psuedo = device_create(class_psuedo,NULL,device_number,NULL,"psuedo");
-                                                    //    |                         
-                                                    //    V    
-                                        //this name appears in /dev directory
-    if(IS_ERR(device_psuedo)) {
-        pr_err("Failed to create device\n");
-        ret = PTR_ERR(device_psuedo);
+
+    //3. Register the platform driver
+    ret = platform_driver_register(&psuedo_platform_driver);
+    if(ret < 0){
+        pr_err("Failed to register platform driver\n");
         goto class_delete;
     }
 
-
-    pr_info("Module Init successful\n");
-
+    pr_info("Platform driver registered\n");
     return 0;
 
 class_delete:
-    class_destroy(class_psuedo);
-cdev_delete:
-    cdev_del(&psuedo_cdev);
+    class_destroy(drv_data.class);
 unregister_alloc:
-    unregister_chrdev_region(device_number,6);
+    unregister_chrdev_region(drv_data.device_num_base, MAX_DEVICES);
 alloc_error:    
+    pr_info("Platform driver failed to load\n");
     return ret;
-#endif
-    return 0;
+
 }
 
-static void __exit psuedo_cleanup(void){
+static void __exit psuedo_platform_driver_cleanup(void){
     //1.Unregister the platform driver
     platform_driver_unregister(&psuedo_platform_driver);
-#if 0
+    pr_info("Platform driver unregistered\n");
     //Exit should be done in reverse order of init
-    //4. Destroy device
-    device_destroy(class_psuedo,device_number);
-    //4. Destroy class
-    class_destroy(class_psuedo);
-
-    //2.cdev removal
-    cdev_del(&psuedo_cdev);
-
-    //1.Unallocate the allocated major and minor numbers
-    unregister_chrdev_region(device_number,6);
-    pr_info("Module Exit successful\n");
-#endif
+    //2. Destroy class
+    class_destroy(drv_data.class);
+    //4.Unallocate the allocated major and minor numbers
+    unregister_chrdev_region(drv_data.device_num_base, MAX_DEVICES);
 }
 
 
-module_init(psuedo_platform_init);
-module_exit(psuedo_cleanup);
+module_init(psuedo_platform_driver_init);
+module_exit(psuedo_platform_driver_cleanup);
 
 
 MODULE_LICENSE("GPL");
 MODULE_AUTHOR("HIKARI_NO_OMO");
-MODULE_DESCRIPTION("Psuedo Character Driver");
+MODULE_DESCRIPTION("Psuedo Platform Character Driver");
 MODULE_INFO(board,"BBB");
