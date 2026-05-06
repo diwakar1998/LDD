@@ -3,6 +3,11 @@
 # Default to 'host' if no argument provided
 MODE="${1:-host}"
 
+# Get the script's directory
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+echo $SCRIPT_DIR
+PARENT_DIR="$(dirname "$SCRIPT_DIR")"
+echo $PARENT_DIR
 # Always install packages
 sudo apt-get update -y
 sudo apt-get upgrade -y
@@ -14,20 +19,38 @@ sudo apt-get install lz4 lzop lzma -y
 sudo apt-get install ncurses5-dev bison flex gettext -y
 sudo apt-get install build-essential git libmpc-dev -y
 sudo apt-get install minicom -y
+sudo apt install gcc-arm-none-eabi -y
 
 # Check which setup mode
 if [ "$MODE" == "bbb" ]; then
     echo "Downloading Linux kernel image..."
-    git clone https://github.com/beagleboard/linux.git -b v5.10.168-ti-r72 --depth=1 ../linux
+    if [ ! -d "$PARENT_DIR/linux" ]; then
+        git clone https://github.com/beagleboard/linux.git -b v5.10.168-ti-r72 --depth=1 "$PARENT_DIR/linux"
+    else
+        echo "Linux kernel already downloaded at $PARENT_DIR/linux, skipping..."
+    fi
+
+    echo "Downloading U-Boot bootloader..."
+    if [ ! -d "$PARENT_DIR/u-boot" ]; then
+        git clone --depth=1 --branch v2023.04 https://github.com/u-boot/u-boot.git "$PARENT_DIR/u-boot"
+    else
+        echo "U-Boot already downloaded at $PARENT_DIR/u-boot, skipping..."
+    fi
 
     echo "Setting up toolchain..."
-    rm -rf gcc*.xz*
-    wget https://releases.linaro.org/components/toolchain/binaries/7.5-2019.12/arm-linux-gnueabihf/gcc-linaro-7.5.0-2019.12-x86_64_arm-linux-gnueabihf.tar.xz
-    tar -xvf gcc*.xz
-    rm -rf gcc*.xz*
-    mv gcc* ../.
+    cd "$PARENT_DIR"
+    if [ ! -f "gcc-linaro-7.5.0-2019.12-x86_64_arm-linux-gnueabihf.tar.xz" ]; then
+        echo "Downloading GCC toolchain..."
+        wget -P "$PARENT_DIR" https://releases.linaro.org/components/toolchain/binaries/7.5-2019.12/arm-linux-gnueabihf/gcc-linaro-7.5.0-2019.12-x86_64_arm-linux-gnueabihf.tar.xz
+        tar -xvf gcc*.xz
+    else
+        echo "GCC toolchain already downloaded, skipping..."
+    fi
+    
+    echo "Download Debian image from https://www.beagleboard.org/distros/"
+    # rm -rf gcc*.xz*
 
-    cd ../gcc*/bin
+    cd gcc*/bin
     echo "export PATH=\"\$PATH:$PWD\"" >> ~/.bashrc
     source ~/.bashrc
     

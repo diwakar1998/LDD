@@ -1,0 +1,27 @@
+/dts-v1/;
+
+#include "am33xx.dtsi"
+#include "am335x-bone-common.dtsi"
+#include "am335x-boneblack-common.dtsi"
+#include "am335x-boneblack-hdmi.dtsi"
+
+/{
+	psuedo_char_platform_device_1{
+		compatible = "psuedo-char-device-001";
+		org,size = <512>;
+		org,device_serial = "PSUDO_CHAR_001";
+		org,perm = <0x11>;
+	};
+	psuedo_char_platform_device_2{
+		compatible = "psuedo-char-device-002";
+		org,size = <1024>;
+		org,device_serial = "PSUDO_CHAR_002";
+		org,perm = <0x11>;
+	};
+	psuedo_char_platform_device_3{
+		compatible = "psuedo-char-device-003";
+		org,size = <512>;
+		org,device_serial = "PSUDO_CHAR_003";
+		org,perm = <0x11>;
+	};	
+};
