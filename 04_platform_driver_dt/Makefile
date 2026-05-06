@@ -27,16 +27,20 @@ kernel_compile:
 	make ARCH=$(ARCH) CROSS_COMPILE=$(CROSS) -C $(KERN_DIR) distclean -j4
 	make ARCH=$(ARCH) CROSS_COMPILE=$(CROSS) -C $(KERN_DIR) bb.org_defconfig -j4
 # 	make ARCH=$(ARCH) CROSS_COMPILE=$(CROSS) -C $(KERN_DIR) menuconfig #optional
-	make ARCH=$(ARCH) CROSS_COMPILE=$(CROSS) -C $(KERN_DIR) uImage dtbs LOADADDR=0x80008000 -j4
+	make ARCH=$(ARCH) CROSS_COMPILE=$(CROSS) -C $(KERN_DIR) uImage dtbs LOADADDR=0x82000000 -j4
 	make ARCH=$(ARCH) CROSS_COMPILE=$(CROSS) -C $(KERN_DIR) modules
 	sudo make ARCH=$(ARCH) -C $(KERN_DIR) modules_install
 	ls -lh $(KERN_DIR)/arch/arm/boot/uImage
 	ls -lh $(KERN_DIR)/arch/arm/boot/dts/am335x-boneblack*.dtb
+	cp $(KERN_DIR)/arch/arm/boot/dts/am335x-boneblack*.dtb .
+	cp $(KERN_DIR)/arch/arm/boot/uImage .
 	ls $(KERN_DIR)/arch/arm/boot/dts/am335x-*.dtb | wc -l
 uboot_compile:
 	make ARCH=$(ARCH) CROSS_COMPILE=$(CROSS) -C $(UBOOT_DIR) am335x_evm_defconfig
 	make ARCH=$(ARCH) CROSS_COMPILE=$(CROSS) -C $(UBOOT_DIR) -j4
 	ls -lh $(UBOOT_DIR)/MLO $(UBOOT_DIR)/u-boot.img
+	cp $(UBOOT_DIR)/MLO .
+	cp $(UBOOT_DIR)/u-boot.img .
 host:host_clean
 	make -C $(HOST_DIR) M=$(PWD) modules
 host_clean:
