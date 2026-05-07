@@ -53,9 +53,9 @@ send:
 	make send_dtb send_ko
 
 send_dtb:
-	sshpass -p "temppwd" scp *.dtb debian@192.168.7.2:/home/debian/drivers/
+	sshpass -p "123456" scp *.dtb debian@192.168.7.2:/home/debian/drivers/
 send_ko:
-	sshpass -p "temppwd" scp *.ko debian@192.168.7.2:/home/debian/drivers/
+	sshpass -p "123456" scp *.ko debian@192.168.7.2:/home/debian/drivers/
 dtb:
 	cp $(DTSFILE).dts $(KERN_DIR)/arch/arm/boot/dts/
 	make -C $(KERN_DIR) ARCH=$(ARCH) CROSS_COMPILE=$(CROSS) $(DTSFILE).dtb -j$(Nproc)
