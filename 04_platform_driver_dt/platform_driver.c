@@ -6,6 +6,8 @@
 #include<linux/platform_device.h>
 #include<linux/mod_devicetable.h>   
 #include "platform.h"
+#include<linux/slab.h>  
+#include <linux/of.h>
 
 #define MEM_SIZE 512
 
@@ -81,20 +83,64 @@ struct device *device_psuedo;
 int psuedo_platform_driver_probe(struct platform_device *pdev);
 int psuedo_platform_driver_remove(struct platform_device *pdev);
 
+/*
+    Platform driver Part2,3,4 Pending
+*/
+
+
+struct psuedo_char_dev_platform_data * dev_get_platdata_from_dt(struct device *dev){
+    struct device_node *dev_node = dev->of_node;
+    struct psuedo_char_dev_platform_data *pdata;
+
+    if(!dev_node){
+        pr_err("No device node found\n");
+        return NULL;
+    }
+
+    pdata = devm_kzalloc(dev,sizeof(*pata),GFP_KERNEL);
+
+    if(!pdata){
+        dev_info(dev,"Cannot allocate mempry/n");
+        return ERR_PTR(-EINVAL);
+    }
+    if(of_properity_read_string(dev_node,"org,device_serial",&pdata->serial_number)){
+        dev_info(dev,"Missing properity:Serial\n");
+        return ERR_PTR(-EINVAL);
+    }
+    if(of_properity_read_string(dev_node,"org,size",&pdata->size)){
+        dev_info(dev,"Missing properity:Size\n");
+        return ERR_PTR(-EINVAL);
+    }
+    if(of_properity_read_string(dev_node,"org,perm",&pdata->perm)){
+        dev_info(dev,"Missing properity:Perm\n");
+        return ERR_PTR(-EINVAL);
+    }
+    return pdata;
+}
+
 int psuedo_platform_driver_probe(struct platform_device *pdev){
     
     int ret = 0;
     pr_info("Device is detected via probing\n");
-    #if 0
+    
     struct psuedo_char_dev_data *devdata;
     struct psuedo_char_dev_platform_data *pdata;
     pr_info("Probing for device\n");
-    // 1 Get the platform data from the device
-    pdata = (struct psuedo_char_dev_platform_data *)dev_get_platdata(&pdev->dev);
-    if(!pdata){
-        pr_err("No platform data found\n");
+    // 1 Get the platform data from the device tree
+    pdata = (struct psuedo_char_dev_platform_data *)dev_get_platdata_from_dt(&pdev->dev);
+    if(IS_ERR(pdata)){
+        pr_err("Device setup not done from DT\n");
         ret = -EINVAL;
         goto exit;
+    }
+    // 1 If pdata is NULL it means device Setup is not done in DT, so get platform data from Device
+    if(!pdata){
+        pdata = (struct psuedo_char_dev_platform_data *)dev_get_platdata(&pdev->dev);
+        if(!pdata){
+            pr_info("No platform data available\n");
+            ret = -EINVAL;
+            goto exit;
+        }
     }
     // 2 Dynamically allocate memory for device private data
     devdata = kzalloc(sizeof(struct psuedo_char_dev_data),GFP_KERNEL);
@@ -144,7 +190,6 @@ free_devdata:
     kfree(devdata);
 exit:
     pr_info("Device probed failed\n");
-    #endif
     return ret;
 }
 
