@@ -1,0 +1,37 @@
+after building fresh uboot
+load it in boot partition along with MLO
+
+thats it..uboot version is upgraded.
+
+To apply DT Overlay get a dtbo file and then enter uboot sheet. 
+In shell follow commands from uboot/docs/fdt_overlay.rst file
+
+before doing bootm command execute setenv bootargs console=ttyO0,115200n8 root=/dev/mmcblk0p2 rw rootfstype=ext4 rootwait earlyprintk mem=512M
+load mmc 0:1 ${loadaddr} uImage
+
+then bootm ${loadaddr} - ${fdtaddr}
+
+
+Commands List
+
+
+setenv fdtaddr 0x87f00000
+setenv fdtovaddr 0x87fc0000
+<!-- setenv loadaddr 0x82000000 -->
+
+setenv bootargs console=ttyO0,115200n8 root=/dev/mmcblk0p2 rw rootwait
+
+mmc rescan
+
+load mmc 0:1 $fdtaddr am335x-boneblack.dtb
+load mmc 0:2 $fdtovaddr **Overlayfile-path**
+
+fdt addr $fdtaddr
+fdt resize 8192
+fdt apply $fdtovaddr
+
+fdt print **/device-name**
+
+load mmc 0:1 $loadaddr uImage
+
+bootm $loadaddr - $fdtaddr
