@@ -1,4 +1,6 @@
 after building fresh uboot
+disable [ ] Enable a default value for bootcmd
+
 load it in boot partition along with MLO
 
 thats it..uboot version is upgraded.

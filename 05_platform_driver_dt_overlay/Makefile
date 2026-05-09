@@ -7,7 +7,7 @@ UBOOT_DIR=../../u-boot
 HOST_DIR=/lib/modules/$(shell uname -r)/build/
 DES_DIR=/home/debian/drivers
 DTSFILE=am335x_boneblack_platform
-OVERLAY_FILE=psuedo_dev1
+OVERLAY_FILE=psuedo_dev1 psuedo_dev2
 BBB_PASS=123456
 
 Nproc=6
@@ -61,10 +61,14 @@ send_dtb:
 send_ko:
 	sshpass -p "123456" scp *.ko debian@192.168.7.2:$(DES_DIR)
 send_dtbo:
-	sshpass -p "123456" scp $(OVERLAY_FILE).dtbo debian@192.168.7.2:$(DES_DIR)
+	sshpass -p "123456" scp *.dtbo debian@192.168.7.2:$(DES_DIR)
+
 dtb:
 	cp $(DTSFILE).dts $(KERN_DIR)/arch/arm/boot/dts/
 	make -C $(KERN_DIR) ARCH=$(ARCH) CROSS_COMPILE=$(CROSS) DTC_FLAGS="-@" $(DTSFILE).dtb -j$(Nproc)
 	cp $(KERN_DIR)/arch/arm/boot/dts/$(DTSFILE).dtb .
-dtbo:
-	dtc -@ -I dts -O dtb -o $(OVERLAY_FILE).dtbo $(OVERLAY_FILE).dts 
+
+dtbo: $(OVERLAY_FILE:%=%.dtbo)
+%.dtbo: %.dts
+	@echo "Compiling $< -> $@"
+	dtc -@ -I dts -O dtb -o $@ $<
