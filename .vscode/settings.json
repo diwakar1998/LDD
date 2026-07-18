@@ -1,0 +1,37 @@
+{
+    "C_Cpp.intelliSenseEngine": "disabled",
+
+    "clangd.path": "/home/hikari/.config/Code/User/globalStorage/llvm-vs-code-extensions.vscode-clangd/install/22.1.6/clangd_22.1.6/bin/clangd",
+
+    "clangd.arguments": [
+        "--compile-commands-dir=/home/hikari/Desktop/linux",
+        "--background-index",
+        "--completion-style=detailed",
+        "--header-insertion=never",
+        "--pch-storage=memory",
+        "--log=verbose" 
+    ],
+    
+    "files.watcherExclude": {
+        "**/.git/objects/**": true,
+        "**/.git/subtree-cache/**": true,
+        "**/Documentation/**": true,
+        "**/tools/**": true,
+        "**/samples/**": true,
+        "**/scripts/**": true,
+        "**/usr/**": true,
+        "**/certs/**": true
+    },
+
+    "search.exclude": {
+        "**/.git": true,
+        "**/Documentation": true,
+        "**/tools": true,
+        "**/samples": true,
+        "**/scripts": true,
+        "**/usr": true,
+        "**/certs": true
+    },
+
+    "makefile.configureOnOpen": false
+}

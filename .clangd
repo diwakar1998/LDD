@@ -1,0 +1,13 @@
+CompileFlags:
+  Add:
+    - -Wno-unknown-warning-option
+    - -Wno-unused-command-line-argument
+    - -Wno-address-of-packed-member
+    - -Wno-gnu-variable-sized-type-not-at-end
+  Remove:
+    - -fconserve-stack
+    - -mrecord-mcount
+    - -mindirect-branch=thunk-extern
+    - -mindirect-branch-register
+    - -mindirect-branch-cs-prefix
+    - -mfunction-return=thunk-extern
