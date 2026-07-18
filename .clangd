@@ -4,6 +4,12 @@ CompileFlags:
     - -Wno-unused-command-line-argument
     - -Wno-address-of-packed-member
     - -Wno-gnu-variable-sized-type-not-at-end
+    
+    - -I/home/hikari/Desktop/linux/drivers
+    - -I/home/hikari/Desktop/linux/kernel
+    - -I/home/hikari/Desktop/linux/fs
+    - -I/home/hikari/Desktop/linux/mm
+
   Remove:
     - -fconserve-stack
     - -mrecord-mcount

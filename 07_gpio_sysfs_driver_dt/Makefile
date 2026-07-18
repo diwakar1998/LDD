@@ -8,7 +8,14 @@ DTSFILE=am335x_boneblack_platform
 
 Nproc=6
 
-.PHONY: all compile clean help host host_clean send send_dtb send_ko dtb
+.PHONY: all compile clean help \
+        setup_host setup_bbb setup_clean \
+        kernel_compile \
+        compile_commands clean_compile_commands \
+        uboot_compile \
+        host host_clean \
+        send send_dtb send_ko \
+        dtb
 
 all:clean compile dtb
 
@@ -38,6 +45,10 @@ kernel_compile:
 	cp $(KERN_DIR)/arch/arm/boot/dts/am335x-boneblack*.dtb .
 	cp $(KERN_DIR)/arch/arm/boot/uImage .
 	ls $(KERN_DIR)/arch/arm/boot/dts/am335x-*.dtb | wc -l
+compile_commands:
+	python3 $(KERN_DIR)/scripts/clang-tools/gen_compile_commands.py
+clean_compile_commands:
+	rm -f compile_commands.json
 uboot_compile:
 	make ARCH=$(ARCH) CROSS_COMPILE=$(CROSS) -C $(UBOOT_DIR) am335x_evm_defconfig
 	make ARCH=$(ARCH) CROSS_COMPILE=$(CROSS) -C $(UBOOT_DIR) -j$(Nproc)

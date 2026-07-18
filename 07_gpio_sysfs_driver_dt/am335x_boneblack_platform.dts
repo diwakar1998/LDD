@@ -1,0 +1,55 @@
+/dts-v1/;
+
+#include "am33xx.dtsi"
+#include "am335x-bone-common.dtsi"
+#include "am335x-boneblack-common.dtsi"
+#include "am335x-boneblack-hdmi.dtsi"
+
+/{
+	psuedo_device_1: psuedo_char_platform_device_1{
+		compatible = "psuedo-char-device-001";
+		org,size = <512>;
+		org,device_serial = "PSUDO_CHAR_001";
+		org,perm = <0x11>;
+	};
+	psuedo_device_2: psuedo_char_platform_device_2{
+		compatible = "psuedo-char-device-002";
+		org,size = <1024>;
+		org,device_serial = "PSUDO_CHAR_002";
+		org,perm = <0x11>;
+	};
+	psuedo_device_3: psuedo_char_platform_device_3{
+		status = "disabled";
+		compatible = "psuedo-char-device-003";
+		org,size = <512>;
+		org,device_serial = "PSUDO_CHAR_003";
+		org,perm = <0x11>;
+	};
+	bone_gpio_devs {
+		compatible = "org,bone-gpio-sysfs";
+		gpio1{
+			label =  "gpio2.2";
+			// Function Name = bone
+			bone-gpios = <&gpio2 2 GPIO_ACTIVE_HIGH>;
+		};
+		gpio2{
+			label = "gpio2.3";
+			bone-gpios = <&gpio2 3 GPIO_ACTIVE_HIGH>;
+		};
+		gpio3{
+			label = "gpio2.4";
+			bone-gpios = <&gpio2 4 GPIO_ACTIVE_HIGH>;
+		};
+		gpio4{
+			label = "usrled0:gpio1.21";
+			bone-gpios = <&gpio1 21 GPIO_ACTIVE_HIGH>;
+		};
+		gpio5{
+			label = "usrled1:gpio2.22";
+			bone-gpios = <&gpio2 22 GPIO_ACTIVE_HIGH>;
+		};
+		gpio6{
+			label = "usrled2:gpio1.23";
+			bone-gpios = <&gpio1 23 GPIO_ACTIVE_HIGH>;
+		};
+	};
