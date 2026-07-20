@@ -5,6 +5,7 @@ KERN_DIR=../../linux
 UBOOT_DIR=../../u-boot
 HOST_DIR=/lib/modules/$(shell uname -r)/build/
 DTSFILE=am335x_boneblack_platform
+ccflags-y += -fno-stack-protector
 
 Nproc=6
 

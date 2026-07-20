@@ -26,7 +26,7 @@ struct gpio_drv_data{
     struct device **dev;
 };
 
-struct gpio_drv_data *gpio_drv;
+struct gpio_drv_data gpio_drv;
 
 
 ssize_t direction_show(struct device *dev, struct device_attribute *attr,char *buf)
@@ -109,15 +109,15 @@ int gpio_probe(struct platform_device *pdev){
 
     pr_info("Inside gpio Probe\n");
     
-    gpio_drv->total_devices = of_get_child_count(parent);
-    if(gpio_drv->total_devices == 0){
+    gpio_drv.total_devices = of_get_child_count(parent);
+    if(gpio_drv.total_devices == 0){
         dev_err(dev,"No devices found\n");
         return -EINVAL;
     }
 
-    dev_info(dev,"Child nodes count: %d\n",gpio_drv->total_devices);
+    dev_info(dev,"Child nodes count: %d\n",gpio_drv.total_devices);
 
-    gpio_drv->dev = devm_kzalloc(dev, sizeof(struct device *)*gpio_drv->total_devices, GFP_KERNEL);
+    gpio_drv.dev = devm_kzalloc(dev, sizeof(struct device *)*gpio_drv.total_devices, GFP_KERNEL);
 
     for_each_available_child_of_node(parent, child)
     {
@@ -156,7 +156,7 @@ int gpio_probe(struct platform_device *pdev){
         }
 
         // Step 2 Create devices for each gpio pin
-        gpio_drv->dev[i] = device_create_with_groups(gpio_drv->class_gpio, dev, 0, (void *)device_data, gpio_attr_grps, device_data->label);
+        gpio_drv.dev[i] = device_create_with_groups(gpio_drv.class_gpio, dev, 0, (void *)device_data, gpio_attr_grps, device_data->label);
         i++;
 
     }
@@ -166,8 +166,8 @@ int gpio_probe(struct platform_device *pdev){
 int gpio_remove(struct platform_device *pdev){
     int i;
     dev_info(&pdev->dev,"Inside gpio remove\n");
-    for(i = 0 ; i < gpio_drv->total_devices; i++){
-        device_unregister(gpio_drv->dev[i]);
+    for(i = 0 ; i < gpio_drv.total_devices; i++){
+        device_unregister(gpio_drv.dev[i]);
     }
     return 0;
 }
@@ -189,16 +189,26 @@ struct platform_driver gpio_platform_driver = {
 
 static int __init gpio_sysfs_init(void){
     // Step 1 Create GPIO class under sysfs
-    gpio_drv->class_gpio = class_create(THIS_MODULE, "Gpio_Class");
-    if(IS_ERR(gpio_drv->class_gpio)){
+    gpio_drv.class_gpio = class_create(THIS_MODULE, "Gpio_Class");
+    if(IS_ERR(gpio_drv.class_gpio)){
         pr_err("Error while creating class\n");
-        return PTR_ERR(gpio_drv->class_gpio);
+        return PTR_ERR(gpio_drv.class_gpio);
     }
+
+    platform_driver_register(&gpio_platform_driver);
     pr_info("GPIO driver Module loaded\n");
     return 0;
 }
 
+static void __exit gpio_sysfs_exit(void){
+    platform_driver_unregister(&gpio_platform_driver);
+    class_destroy(gpio_drv.class_gpio);
+}
+
+
+
 module_init(gpio_sysfs_init);
+module_exit(gpio_sysfs_exit);
 
 MODULE_LICENSE("GPL");
 MODULE_AUTHOR("HIKARI_NO_OMO");
