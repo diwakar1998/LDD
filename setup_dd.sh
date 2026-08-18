@@ -47,7 +47,8 @@ if [ "$MODE" == "bbb" ]; then
         echo "GCC toolchain already downloaded, skipping..."
     fi
     
-    echo "Download Debian image from https://www.beagleboard.org/distros/"
+    echo "Downloading Debian image from https://www.beagleboard.org/distros/"
+    wget -P "$PARENT_DIR" https://files.beagle.cc/file/beagleboard-public-2021/images/am335x-debian-11.7-iot-armhf-2023-09-02-4gb.img.xz
     # rm -rf gcc*.xz*
 
     cd gcc*/bin

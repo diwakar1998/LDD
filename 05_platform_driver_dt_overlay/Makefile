@@ -20,7 +20,7 @@ compile:
 	make ARCH=$(ARCH) CROSS_COMPILE=$(CROSS) -C $(KERN_DIR) M=$(PWD) modules -j$(Nproc)
 clean:
 	make ARCH=$(ARCH) CROSS_COMPILE=$(CROSS) -C $(KERN_DIR) M=$(PWD) clean
-	rm -f *.dtb
+	rm -f *.dtb u-boot* uImage MLO
 help:
 	make ARCH=$(ARCH) CROSS_COMPILE=$(CROSS) -C $(KERN_DIR) M=$(PWD) help
 setup_host:
@@ -72,3 +72,4 @@ dtbo: $(OVERLAY_FILE:%=%.dtbo)
 %.dtbo: %.dts
 	@echo "Compiling $< -> $@"
 	dtc -@ -I dts -O dtb -o $@ $<
+

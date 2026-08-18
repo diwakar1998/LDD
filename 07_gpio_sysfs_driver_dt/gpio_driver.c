@@ -9,6 +9,7 @@
 #include<linux/of.h>
 #include<linux/device.h>
 #include<linux/gpio/consumer.h>
+#include<linux/stacktrace.h>
 
 #undef pr_fmt
 #define pr_fmt(fmt) "%s :" fmt,__func__
@@ -64,7 +65,9 @@ ssize_t value_store(struct device *dev, struct device_attribute *attr,const char
     long value;
     ret = kstrtol(buf, 0, &value);
     if(ret) return ret;
+    dump_stack();
     gpiod_set_value(device_data->des, value);
+    
     return count;
 }
 
@@ -203,6 +206,7 @@ static int __init gpio_sysfs_init(void){
 static void __exit gpio_sysfs_exit(void){
     platform_driver_unregister(&gpio_platform_driver);
     class_destroy(gpio_drv.class_gpio);
+    pr_info("GPIO driver Module Unloaded\n");
 }
 
 

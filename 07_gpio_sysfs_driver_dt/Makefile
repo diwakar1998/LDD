@@ -61,7 +61,7 @@ host:host_clean
 host_clean:
 	make -C $(HOST_DIR) M=$(PWD) clean
 send:
-	make send_dtb send_ko
+	make clean compile dtb send_dtb send_ko
 
 send_dtb:
 	sshpass -p "123456" scp *.dtb debian@192.168.7.2:/home/debian/drivers/
